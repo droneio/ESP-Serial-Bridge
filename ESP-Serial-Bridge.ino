@@ -41,29 +41,24 @@ HardwareSerial Serial_one(1);
 HardwareSerial Serial_two(2);
 HardwareSerial *COM[NUM_COM] = {&Serial, &Serial_one, &Serial_two};
 
-uint8_t buf1[NUM_COM][BUFFERSIZE];
-uint8_t buf2[NUM_COM][BUFFERSIZE];
-
-uint16_t i1[NUM_COM] = {0, 0, 0};
-
-uint8_t BTbuf[BUFFERSIZE];
-uint16_t iBT = 0;
-
+uint8_t buf[NUM_COM][BUFFERSIZE];
 
 #ifdef MODE_STA
-void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
-        debug.print("WiFi disconnected: ");
-        debug.println(info.wifi_sta_disconnected.reason);
-        debug.println("Trying to reconnect..");
-        WiFi.begin(SSID, PASSWD);
-        while (WiFi.status() != WL_CONNECTED) {
-            delay(500);
-            debug.print(".");
-        }
-        debug.println("connected");
-        debug.print("IP address: ");
-        debug.println(WiFi.localIP());
+void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
+{
+    debug.print("WiFi disconnected: ");
+    debug.println(info.wifi_sta_disconnected.reason);
+    debug.println("Trying to reconnect..");
+    WiFi.begin(SSID, PASSWD);
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(500);
+        debug.print(".");
     }
+    debug.println("connected");
+    debug.print("IP address: ");
+    debug.println(WiFi.localIP());
+}
 #endif
 
 void setup()
@@ -80,17 +75,15 @@ void setup()
 #ifdef MODE_AP
     debug.println("Open ESP Access Point Mode");
     WiFi.mode(WIFI_AP);
-    WiFi.softAP(SSID, PASSWD); // configure SSID and password for softAP
-    delay(2000);               // VERY IMPORTANT
-    WiFi.softAPConfig(STATIC_IP, STATIC_IP,
-                      NETMASK); // configure ip address for softAP
+    WiFi.softAP(SSID, PASSWD);                        // configure SSID and password for softAP
+    delay(2000);                                      // VERY IMPORTANT
+    WiFi.softAPConfig(STATIC_IP, STATIC_IP, NETMASK); // configure ip address for softAP
 #endif
 
 #ifdef MODE_STA
     debug.println("Open ESP Station Mode");
     WiFi.mode(WIFI_STA);
-    WiFi.onEvent(WiFiStationDisconnected,
-                 ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+    WiFi.onEvent(WiFiStationDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
     WiFi.begin(SSID, PASSWD);
     debug.print("Connecting to: ");
     debug.print(SSID);
@@ -122,8 +115,7 @@ void setup()
         {
             debug.printf("Listening on UDP port %d\n", udp_port[num]);
             udp[num]->onPacket([num](AsyncUDPPacket packet)
-                               { COM[num]->write(packet.data(), packet.length());
-                                 debug.println("received"); });
+                               { COM[num]->write(packet.data(), packet.length()); });
         }
     }
 
@@ -137,18 +129,13 @@ void loop()
 
     for (int num = 0; num < NUM_COM; num++)
     {
-        if (COM[num] != NULL)
+        if (COM[num] != NULL && COM[num]->available())
         {
+            int readCount = COM[num]->read(&buf[num][0], BUFFERSIZE); // Read up to BUFFERSIZE bytes from the serial device.
+            if (readCount == 0)
+                continue;
 
-            if (COM[num]->available())
-            {
-                int readCount = COM[num]->read(&buf2[num][0], BUFFERSIZE); // Read up to BUFFERSIZE bytes from the serial device.
-                if (readCount == 0)
-                    continue;
-                
-
-                udp[num]->broadcastTo(buf2[num], readCount, udp_port[num]);
-            }
+            udp[num]->broadcastTo(buf[num], readCount, udp_port[num]); // Send out the UDP message.
         }
     }
 }
