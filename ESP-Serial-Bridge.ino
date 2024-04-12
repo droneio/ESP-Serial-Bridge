@@ -55,19 +55,47 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
         delay(500);
         debug.print(".");
     }
-    debug.println("connected");
-    debug.print("IP address: ");
+}
+
+void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info)
+{
+    debug.println("WiFi connected.");
+}
+
+void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
+{
+    debug.print("Got IP address: ");
     debug.println(WiFi.localIP());
+
+    if (!MDNS.begin(HOSTNAME))
+    {
+        debug.println("Error starting mDNS");
+    }
+    else
+    {
+        debug.print("Started mDNS, discoverable as: ");
+        debug.println(HOSTNAME);
+        // MDNS.addService("_telnet", "_tcp", SERIAL0_TCP_PORT); // We're not running a telnet server.
+    }
 }
 #endif
 
 void setup()
 {
+    WiFi.disconnect(true); // delete old config
+
     delay(500);
 
+    // Set up serial ports and configure buffers
+    COM[0]->setRxBufferSize(BUFFERSIZE);
+    COM[1]->setRxBufferSize(BUFFERSIZE);
+    COM[2]->setRxBufferSize(BUFFERSIZE);
     COM[0]->begin(UART_BAUD0, SERIAL_PARAM0, SERIAL0_RXPIN, SERIAL0_TXPIN);
     COM[1]->begin(UART_BAUD1, SERIAL_PARAM1, SERIAL1_RXPIN, SERIAL1_TXPIN);
     COM[2]->begin(UART_BAUD2, SERIAL_PARAM2, SERIAL2_RXPIN, SERIAL2_TXPIN);
+    COM[0]->setRxFIFOFull(BUFFERSIZE / 4);
+    COM[1]->setRxFIFOFull(BUFFERSIZE / 4);
+    COM[2]->setRxFIFOFull(BUFFERSIZE / 4);
 
     debug.print("\n\nWiFi serial bridge ");
     debug.println(VERSION);
@@ -83,7 +111,10 @@ void setup()
 #ifdef MODE_STA
     debug.println("Open ESP Station Mode");
     WiFi.mode(WIFI_STA);
+    WiFi.onEvent(WiFiGotIP, ARDUINO_EVENT_WIFI_STA_GOT_IP);
+    WiFi.onEvent(WiFiStationConnected, ARDUINO_EVENT_WIFI_STA_CONNECTED);
     WiFi.onEvent(WiFiStationDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+
     WiFi.begin(SSID, PASSWD);
     debug.print("Connecting to: ");
     debug.print(SSID);
@@ -92,20 +123,6 @@ void setup()
     {
         delay(500);
         debug.print(".");
-    }
-    debug.println("connected");
-    debug.print("IP address: ");
-    debug.println(WiFi.localIP());
-
-    if (!MDNS.begin(HOSTNAME))
-    {
-        debug.println("Error starting mDNS");
-    }
-    else
-    {
-        debug.print("Started mDNS, discoverable as: ");
-        debug.println(HOSTNAME);
-        MDNS.addService("_telnet", "_tcp", SERIAL0_TCP_PORT);
     }
 #endif
 
@@ -126,6 +143,11 @@ void setup()
 
 void loop()
 {
+    if (WiFi.status() != WL_CONNECTED) // If we're not connected, do nothing.
+    {
+        delay(100);
+        return;
+    }
 
     for (int num = 0; num < NUM_COM; num++)
     {
