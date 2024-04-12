@@ -82,6 +82,10 @@ void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
 
 void setup()
 {
+#ifdef DEBUG
+    debug.begin(115200);
+#endif
+
     WiFi.disconnect(true); // delete old config
 
     delay(500);
@@ -90,6 +94,7 @@ void setup()
     COM[0]->setRxBufferSize(BUFFERSIZE);
     COM[1]->setRxBufferSize(BUFFERSIZE);
     COM[2]->setRxBufferSize(BUFFERSIZE);
+
     COM[0]->begin(UART_BAUD0, SERIAL_PARAM0, SERIAL0_RXPIN, SERIAL0_TXPIN);
     COM[1]->begin(UART_BAUD1, SERIAL_PARAM1, SERIAL1_RXPIN, SERIAL1_TXPIN);
     COM[2]->begin(UART_BAUD2, SERIAL_PARAM2, SERIAL2_RXPIN, SERIAL2_TXPIN);
