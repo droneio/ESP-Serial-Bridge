@@ -47,14 +47,6 @@ uint8_t buf[NUM_COM][BUFFERSIZE];
 void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info)
 {
     debug.print("WiFi disconnected: ");
-    debug.println(info.wifi_sta_disconnected.reason);
-    debug.println("Trying to reconnect..");
-    WiFi.begin(SSID, PASSWD);
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(500);
-        debug.print(".");
-    }
 }
 
 void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info)
@@ -86,21 +78,14 @@ void setup()
     debug.begin(115200);
 #endif
 
-    WiFi.disconnect(true); // delete old config
-
+    WiFi.disconnect(true); // delete old config (attempt true, true)
     delay(500);
 
-    // Set up serial ports and configure buffers
-    COM[0]->setRxBufferSize(BUFFERSIZE);
-    COM[1]->setRxBufferSize(BUFFERSIZE);
-    COM[2]->setRxBufferSize(BUFFERSIZE);
-
+    // Set up serial ports
     COM[0]->begin(UART_BAUD0, SERIAL_PARAM0, SERIAL0_RXPIN, SERIAL0_TXPIN);
     COM[1]->begin(UART_BAUD1, SERIAL_PARAM1, SERIAL1_RXPIN, SERIAL1_TXPIN);
     COM[2]->begin(UART_BAUD2, SERIAL_PARAM2, SERIAL2_RXPIN, SERIAL2_TXPIN);
-    COM[0]->setRxFIFOFull(BUFFERSIZE / 4);
-    COM[1]->setRxFIFOFull(BUFFERSIZE / 4);
-    COM[2]->setRxFIFOFull(BUFFERSIZE / 4);
+
 
     debug.print("\n\nWiFi serial bridge ");
     debug.println(VERSION);
@@ -118,7 +103,7 @@ void setup()
     WiFi.mode(WIFI_STA);
     WiFi.onEvent(WiFiGotIP, ARDUINO_EVENT_WIFI_STA_GOT_IP);
     WiFi.onEvent(WiFiStationConnected, ARDUINO_EVENT_WIFI_STA_CONNECTED);
-    WiFi.onEvent(WiFiStationDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+    
 
     WiFi.begin(SSID, PASSWD);
     debug.print("Connecting to: ");
@@ -129,6 +114,7 @@ void setup()
         delay(500);
         debug.print(".");
     }
+    WiFi.onEvent(WiFiStationDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 #endif
 
     for (uint16_t num = 0; num < NUM_COM; num++)
@@ -148,12 +134,6 @@ void setup()
 
 void loop()
 {
-    if (WiFi.status() != WL_CONNECTED) // If we're not connected, do nothing.
-    {
-        delay(100);
-        return;
-    }
-
     for (int num = 0; num < NUM_COM; num++)
     {
         if (COM[num] != NULL && COM[num]->available())
